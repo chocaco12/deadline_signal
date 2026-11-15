@@ -3,17 +3,88 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="과제에 필요한 시간과 마감 전 공부 가능한 시간을 비교해 시간 부족을 확인하세요.">
   <title>과제 신호등 | Deadline Signal</title>
   <link rel="stylesheet" href="css/style.css">
   <script src="js/app.js" defer></script>
 </head>
 <body>
-  <main>
-    <p>Deadline Signal</p>
-    <h1>과제 신호등</h1>
-    <p>마감일은 알고 있는데, 지금부터 해도 끝낼 수 있을까?</p>
-    <p>필요한 시간과 공부 가능한 시간을 비교하는 서비스를 준비하고 있습니다.</p>
-    <p class="status">기획 중 · 시간 계산 기능은 아직 구현되지 않았습니다.</p>
+  <main class="layout">
+    <header class="intro">
+      <p class="eyebrow">Deadline Signal</p>
+      <h1>과제 신호등</h1>
+      <p class="lead">마감일은 아는데, 지금부터 해도 끝낼 수 있을까?</p>
+      <p class="intro-note">남은 작업 시간과 이 과제에 쓸 수 있는 시간을 비교해 보세요.</p>
+    </header>
+
+    <form id="signal-form" novalidate>
+      <section class="card" aria-labelledby="task-heading">
+        <div class="section-heading">
+          <span class="step">1</span>
+          <div>
+            <h2 id="task-heading">과제 정보</h2>
+            <p>앞으로 해야 할 작업을 기준으로 적어 주세요.</p>
+          </div>
+        </div>
+        <div class="field-grid">
+          <div class="field field-wide">
+            <label for="task-name">과제명</label>
+            <input id="task-name" name="taskName" type="text" autocomplete="off" placeholder="예: 보고서 작성" aria-describedby="task-name-error">
+            <p class="field-error" id="task-name-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="deadline">마감 날짜와 시각</label>
+            <input id="deadline" name="deadline" type="datetime-local" aria-describedby="deadline-help deadline-error">
+            <p class="field-help" id="deadline-help">기기 현지 시각 기준입니다. 오늘부터 1년 이내의 마감을 입력해 주세요.</p>
+            <p class="field-error" id="deadline-error" hidden></p>
+          </div>
+          <div class="field">
+            <label for="needed-hours">앞으로 필요한 시간</label>
+            <div class="input-unit">
+              <input id="needed-hours" name="neededHours" type="number" inputmode="decimal" min="0.5" step="0.5" placeholder="예: 8" aria-describedby="needed-hours-help needed-hours-error">
+              <span aria-hidden="true">시간</span>
+            </div>
+            <p class="field-help" id="needed-hours-help">이미 쓴 시간은 빼고, 30분 단위로 입력하세요.</p>
+            <p class="field-error" id="needed-hours-error" hidden></p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" aria-labelledby="daily-heading">
+        <div class="section-heading">
+          <span class="step">2</span>
+          <div>
+            <h2 id="daily-heading">날짜별 공부 가능 시간</h2>
+            <p>수업·다른 과제·휴식 시간을 제외하고, 이 과제에 실제로 쓸 시간만 적어 주세요.</p>
+          </div>
+        </div>
+        <p class="field-help">오늘은 지금 이후, 마감일은 마감 시각 전까지만 입력하세요. 시간이 없는 날은 0시간으로 두면 됩니다.</p>
+        <p id="daily-placeholder" class="empty-state">마감 날짜와 시각을 입력하면 날짜별 입력칸이 나타납니다.</p>
+        <div id="daily-list" class="daily-list" aria-live="polite" hidden></div>
+      </section>
+
+      <div class="actions">
+        <p id="error-summary" class="error-summary" role="alert" hidden></p>
+        <p id="change-notice" class="change-notice" role="status" hidden></p>
+        <button type="submit" class="primary-button">시간 비교하기 <span aria-hidden="true">→</span></button>
+      </div>
+    </form>
+
+    <section id="result" class="result card" aria-labelledby="result-heading" aria-live="polite" hidden>
+      <p class="eyebrow">시간 비교 결과</p>
+      <h2 id="result-heading">결과</h2>
+      <div class="result-top">
+        <p id="signal-badge" class="signal-badge"></p>
+        <p id="result-difference" class="result-difference"></p>
+      </div>
+      <p id="result-task" class="result-task"></p>
+      <div class="result-numbers">
+        <div><span>앞으로 필요한 시간</span><strong id="result-needed"></strong></div>
+        <div><span>공부 가능한 시간</span><strong id="result-available"></strong></div>
+      </div>
+      <p id="result-guidance" class="result-guidance"></p>
+      <p class="result-disclaimer">입력한 예상 작업 시간과 공부 가능 시간을 기준으로 계산했어요. 실제 완료를 보장하지 않습니다.</p>
+    </section>
   </main>
 </body>
 </html>
