@@ -2,20 +2,13 @@ const form = document.querySelector('#signal-form');
 const taskInput = document.querySelector('#task-name');
 const deadlineInput = document.querySelector('#deadline');
 const neededInput = document.querySelector('#needed-hours');
-const dailyList = document.querySelector('#daily-list');
-const dailyPlaceholder = document.querySelector('#daily-placeholder');
+const averageInput = document.querySelector('#average-hours');
 const result = document.querySelector('#result');
 const errorSummary = document.querySelector('#error-summary');
 const changeNotice = document.querySelector('#change-notice');
-const savedDays = new Map();
-let visibleDays = [];
 
 const HALF_HOUR = 30 * 60 * 1000;
 const MAX_DAYS = 366;
-
-function dayKey(date) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-}
 
 function daySerial(date) {
   return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86400000;
@@ -28,10 +21,8 @@ function formatHours(units) {
 function setError(input, message) {
   const messageElement = document.getElementById(`${input.id}-error`);
   input.setAttribute('aria-invalid', message ? 'true' : 'false');
-  if (messageElement) {
-    messageElement.textContent = message;
-    messageElement.hidden = !message;
-  }
+  messageElement.textContent = message;
+  messageElement.hidden = !message;
 }
 
 function clearErrors() {
@@ -71,86 +62,23 @@ function maxUnits(day, now, deadline) {
   return Math.max(0, Math.floor((end - start) / HALF_HOUR));
 }
 
-function daysThrough(deadline, now) {
-  const days = [];
+function estimateAvailable(now, deadline, averageUnits) {
+  let available = 0;
+  let days = 0;
+  let cappedDays = 0;
   for (let offset = 0; offset < MAX_DAYS; offset++) {
     const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
     if (daySerial(day) > daySerial(deadline)) break;
-    days.push(day);
-  }
-  return days;
-}
-
-function dayLabel(day, now) {
-  const label = `${day.getMonth() + 1}월 ${day.getDate()}일`;
-  return dayKey(day) === dayKey(now) ? `${label} (오늘)` : label;
-}
-
-function renderDays(days, now, deadline) {
-  dailyList.replaceChildren();
-  for (const day of days) {
-    const key = dayKey(day);
     const limit = maxUnits(day, now, deadline);
-    const item = document.createElement('div');
-    item.className = 'daily-item';
-    item.dataset.day = key;
-
-    const label = document.createElement('label');
-    label.htmlFor = `day-${key}`;
-    label.textContent = dayLabel(day, now);
-    const hint = document.createElement('p');
-    hint.className = 'daily-hint';
-    hint.id = `day-${key}-hint`;
-    hint.textContent = `최대 ${formatHours(limit)}${limit === 0 ? ' · 남은 시간이 30분 미만입니다.' : ''}`;
-    const input = document.createElement('input');
-    input.id = `day-${key}`;
-    input.type = 'number';
-    input.inputMode = 'decimal';
-    input.min = '0';
-    input.max = String(limit / 2);
-    input.step = '0.5';
-    input.value = savedDays.get(key) ?? '0';
-    input.setAttribute('aria-describedby', `${input.id}-hint ${input.id}-error`);
-    const error = document.createElement('p');
-    error.className = 'field-error';
-    error.id = `${input.id}-error`;
-    error.hidden = true;
-    item.append(label, hint, input, error);
-    dailyList.append(item);
+    available += Math.min(averageUnits, limit);
+    if (limit < averageUnits) cappedDays++;
+    days++;
   }
+  return { available, days, cappedDays };
 }
 
-function syncDays(deadline, now) {
-  if (!deadline) {
-    visibleDays = [];
-    dailyList.hidden = true;
-    dailyPlaceholder.hidden = false;
-    dailyList.replaceChildren();
-    return false;
-  }
-  const days = daysThrough(deadline, now);
-  const keys = days.map(dayKey);
-  const changed = keys.length !== visibleDays.length || keys.some((key, i) => key !== visibleDays[i]);
-  if (changed) {
-    for (const input of dailyList.querySelectorAll('input')) savedDays.set(input.id.slice(4), input.value);
-    const allowed = new Set(keys);
-    for (const key of savedDays.keys()) if (!allowed.has(key)) savedDays.delete(key);
-    renderDays(days, now, deadline);
-    visibleDays = keys;
-  } else {
-    days.forEach((day, i) => {
-      const item = dailyList.children[i];
-      const limit = maxUnits(day, now, deadline);
-      item.querySelector('input').max = String(limit / 2);
-      item.querySelector('.daily-hint').textContent = `최대 ${formatHours(limit)}${limit === 0 ? ' · 남은 시간이 30분 미만입니다.' : ''}`;
-    });
-  }
-  dailyList.hidden = false;
-  dailyPlaceholder.hidden = true;
-  return changed;
-}
-
-function showResult(task, needed, available) {
+function showResult(task, needed, average, estimate) {
+  const available = estimate.available;
   const signal = available < needed ? 'red' : 5 * available < 6 * needed ? 'yellow' : 'green';
   const labels = { red: '🔴 시간 부족', yellow: '🟡 빠듯함', green: '🟢 여유 있음' };
   const guidance = {
@@ -168,6 +96,7 @@ function showResult(task, needed, available) {
   document.querySelector('#result-needed').textContent = formatHours(needed);
   document.querySelector('#result-available').textContent = formatHours(available);
   document.querySelector('#result-guidance').textContent = guidance[signal];
+  document.querySelector('#result-basis').textContent = `하루 평균 ${formatHours(average)} × 오늘부터 마감일까지 ${estimate.days}일${estimate.cappedDays ? ` · ${estimate.cappedDays}일은 실제 남은 시간까지만 반영` : ''}`;
   result.hidden = false;
   changeNotice.hidden = true;
   result.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -178,12 +107,9 @@ form.addEventListener('input', event => {
   hideResult();
   setError(event.target, '');
   errorSummary.hidden = true;
-  if (event.target.closest('.daily-item')) savedDays.set(event.target.id.slice(4), event.target.value);
-  if (event.target === deadlineInput) {
-    const now = new Date();
-    const status = deadlineStatus(now);
-    syncDays(status.date, now);
-    if (status.error && deadlineInput.value) setError(deadlineInput, status.error);
+  if (event.target === deadlineInput && deadlineInput.value) {
+    const status = deadlineStatus(new Date());
+    if (status.error) setError(deadlineInput, status.error);
   }
 });
 
@@ -195,6 +121,7 @@ form.addEventListener('submit', event => {
   const status = deadlineStatus(now);
   const task = taskInput.value.trim();
   const needed = halfHourUnits(neededInput.value, false);
+  const average = halfHourUnits(averageInput.value, true);
   let firstInvalid = null;
   function fail(input, message) {
     setError(input, message);
@@ -203,28 +130,12 @@ form.addEventListener('submit', event => {
   if (!task) fail(taskInput, '과제명을 입력해 주세요.');
   if (status.error) fail(deadlineInput, status.error);
   if (needed === null) fail(neededInput, '필요한 시간은 0.5시간 단위의 양수로 입력해 주세요.');
-
-  const oldDays = [...visibleDays];
-  syncDays(status.date, now);
-  if (status.date && oldDays.length && (oldDays.length !== visibleDays.length || oldDays.some((key, i) => key !== visibleDays[i]))) {
-    changeNotice.textContent = '날짜 목록이 현재 시각에 맞게 갱신됐어요. 시간을 확인한 뒤 다시 비교해 주세요.';
-    changeNotice.hidden = false;
-    return;
-  }
-
-  let available = 0;
-  if (status.date) for (const input of dailyList.querySelectorAll('input')) {
-    const units = halfHourUnits(input.value, true);
-    const limit = Number(input.max) * 2;
-    if (units === null) fail(input, '0.5시간 단위의 0 이상 숫자를 입력해 주세요.');
-    else if (units > limit) fail(input, `${input.closest('.daily-item').querySelector('label').textContent}은 최대 ${formatHours(limit)}까지만 입력할 수 있어요.`);
-    else available += units;
-  }
+  if (average === null || average > 48) fail(averageInput, '하루 평균 가능 시간은 0~24시간 사이에서 0.5시간 단위로 입력해 주세요.');
   if (firstInvalid) {
     errorSummary.textContent = '입력을 확인해 주세요. 오류가 있는 항목으로 이동합니다.';
     errorSummary.hidden = false;
     firstInvalid.focus();
     return;
   }
-  showResult(task, needed, available);
+  showResult(task, needed, average, estimateAvailable(now, status.date, average));
 });

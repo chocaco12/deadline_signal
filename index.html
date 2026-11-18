@@ -56,13 +56,16 @@
         <div class="section-heading">
           <span class="step" aria-hidden="true">▦</span>
           <div>
-            <h2 id="daily-heading">날짜별 공부 가능 시간</h2>
-            <p>수업·다른 과제·휴식 시간을 제외하고, 이 과제에 실제로 쓸 시간만 적어 주세요.</p>
+            <h2 id="daily-heading">하루 평균 공부 가능 시간</h2>
+            <p>날짜마다 적지 않고, 하루에 보통 이 과제에 쓸 수 있는 시간을 입력하세요.</p>
           </div>
         </div>
-        <p class="field-help">오늘은 지금 이후, 마감일은 마감 시각 전까지만 입력하세요. 시간이 없는 날은 0시간으로 두면 됩니다.</p>
-        <p id="daily-placeholder" class="empty-state">마감 날짜와 시각을 입력하면 날짜별 입력칸이 나타납니다.</p>
-        <div id="daily-list" class="daily-list" aria-live="polite" hidden></div>
+        <div class="field">
+          <label for="average-hours">하루 평균 가능 시간</label>
+          <div class="input-unit"><input id="average-hours" name="averageHours" type="number" inputmode="decimal" min="0" max="24" step="0.5" placeholder="예: 2" aria-describedby="average-hours-help average-hours-error"><span aria-hidden="true">시간/일</span></div>
+          <p class="field-help" id="average-hours-help">0~24시간, 30분 단위로 입력하세요. 수업·다른 과제·휴식은 제외하고, 날마다 다르면 보수적으로 잡아 주세요.</p>
+          <p class="field-error" id="average-hours-error" hidden></p>
+        </div>
       </section>
 
       <div class="actions">
@@ -82,7 +85,8 @@
         <div><span>공부 가능한 시간</span><strong id="result-available"></strong></div>
       </div></div>
       <p id="result-guidance" class="result-guidance"></p>
-      <p class="result-disclaimer">입력한 예상 작업 시간과 공부 가능 시간을 기준으로 계산했어요. 실제 완료를 보장하지 않습니다.</p>
+      <p id="result-basis" class="result-basis"></p>
+      <p class="result-disclaimer">같은 평균 시간을 매일 적용한 추정치예요. 실제 일정과 완료를 보장하지 않습니다.</p>
     </section>
     <p class="footer-note">입력한 내용은 저장하거나 전송하지 않습니다.</p>
   </main>
